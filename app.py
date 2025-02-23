@@ -66,26 +66,39 @@ def search_blogs(query, blogs):
 st.set_page_config(page_title="AI-Powered Blog Platform", layout="wide")
 st.title("📖 Blog Platform")
 
+# Initialize session state for input fields
+if "blog_name" not in st.session_state:
+    st.session_state["blog_name"] = ""
+    st.session_state["title"] = ""
+    st.session_state["description"] = ""
+    st.session_state["image_file"] = None
+
 # Blog Form
 st.sidebar.header("📝 Add a New Blog")
-blog_name = st.sidebar.text_input("Blog Name")
-title = st.sidebar.text_input("Title")
-image_file = st.sidebar.file_uploader("Upload Image", type=["png", "jpg", "jpeg"])
-description = st.sidebar.text_area("Description")
+st.session_state.blog_name = st.sidebar.text_input("Blog Name", value=st.session_state.blog_name, key="blog_name_input")
+st.session_state.title = st.sidebar.text_input("Title", value=st.session_state.title, key="title_input")
+st.session_state.image_file = st.sidebar.file_uploader("Upload Image", type=["png", "jpg", "jpeg"], key="image_file_input")
+st.session_state.description = st.sidebar.text_area("Description", value=st.session_state.description, key="description_input")
 
 if st.sidebar.button("Publish Blog"):
-    if not blog_name or not title or not description:
-        st.sidebar.error("⚠️ Please fill in all fields before publishing.")
+    if not st.session_state.blog_name.strip() or not st.session_state.title.strip() or not st.session_state.description.strip() or not st.session_state.image_file:
+        st.sidebar.error("⚠️ All fields must be filled before publishing!")
     else:
         image_path = None
-        if image_file:
-            with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(image_file.name)[1]) as temp_file:
-                temp_file.write(image_file.getbuffer())
+        if st.session_state.image_file:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(st.session_state.image_file.name)[1]) as temp_file:
+                temp_file.write(st.session_state.image_file.getbuffer())
                 image_path = temp_file.name
         
-        new_blog = {"blog_name": blog_name, "title": title, "image": image_path, "description": description}
+        new_blog = {"blog_name": st.session_state.blog_name, "title": st.session_state.title, "image": image_path, "description": st.session_state.description}
         add_blog(new_blog)
         st.sidebar.success("✅ Blog Published Successfully!")
+        
+        # Clear fields
+        st.session_state.blog_name = ""
+        st.session_state.title = ""
+        st.session_state.description = ""
+        st.session_state.image_file = None
         st.rerun()
 
 # Blog Display
@@ -122,4 +135,3 @@ if search_query:
                 st.caption(f"✍️ {res['blog_name']}")
     else:
         st.warning("⚠️ No matching blogs found!")
-      
