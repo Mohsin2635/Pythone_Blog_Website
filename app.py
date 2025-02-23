@@ -1,6 +1,7 @@
 import streamlit as st
 import os
 import json
+import tempfile
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 # Ensure uploads folder exists
@@ -19,7 +20,6 @@ def load_data():
                     return data
         except json.JSONDecodeError:
             pass
-    
     return []
 
 def save_data(data):
@@ -35,7 +35,6 @@ def delete_blog(title):
     data = load_data()
     updated_data = [blog for blog in data if blog["title"] != title]
     
-    # Delete image file if it exists
     for blog in data:
         if blog["title"] == title and blog["image"]:
             try:
@@ -49,8 +48,7 @@ def search_blogs(query, blogs):
     if not blogs or not query.strip():
         return []
     
-    # Combine blog_name and title for better search accuracy
-    text_data = [f"{blog['blog_name'].lower().strip()} {blog['title'].lower().strip()}" for blog in blogs]
+    text_data = [f"{blog['blog_name'].lower()} {blog['title'].lower()}" for blog in blogs]
     
     if len(text_data) < 2:
         return [blog for blog in blogs if query.lower() in blog["blog_name"].lower() or query.lower() in blog["title"].lower()]
@@ -63,7 +61,6 @@ def search_blogs(query, blogs):
     results = sorted(zip(scores, blogs), key=lambda x: -x[0][0])
     
     return [blog for score, blog in results if score[0] > 0]
-
 
 # Streamlit UI
 st.set_page_config(page_title="AI-Powered Blog Platform", layout="wide")
@@ -82,20 +79,18 @@ if st.sidebar.button("Publish Blog"):
     else:
         image_path = None
         if image_file:
-            image_path = os.path.join(UPLOAD_FOLDER, image_file.name)
-            with open(image_path, "wb") as f:
-                f.write(image_file.getbuffer())
+            with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(image_file.name)[1]) as temp_file:
+                temp_file.write(image_file.getbuffer())
+                image_path = temp_file.name
         
         new_blog = {"blog_name": blog_name, "title": title, "image": image_path, "description": description}
         add_blog(new_blog)
         st.sidebar.success("✅ Blog Published Successfully!")
         st.rerun()
 
-
 # Blog Display
 st.header("📚 All Blogs")
 blogs = load_data()
-# print(blogs)
 
 if not blogs:
     st.info("No blogs available. Add one from the sidebar!")
@@ -110,14 +105,13 @@ else:
                 delete_blog(blog['title'])
                 st.rerun()
 
-
 # AI Search
 st.header("🔍 AI-Powered Search")
 search_query = st.text_input("Search Blogs by Content")
-# print(search_query)
+
 if search_query:
     results = search_blogs(search_query, blogs)
-    # print(results)
+    
     if results:
         st.subheader("Search Results")
         for res in results:
@@ -128,3 +122,4 @@ if search_query:
                 st.caption(f"✍️ {res['blog_name']}")
     else:
         st.warning("⚠️ No matching blogs found!")
+      
