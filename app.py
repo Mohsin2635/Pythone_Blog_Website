@@ -1,57 +1,64 @@
 import streamlit as st
 import os
 import json
-import tempfile
+import base64
+import io
+from PIL import Image
 from sklearn.feature_extraction.text import TfidfVectorizer
 
-# Ensure uploads folder exists
-UPLOAD_FOLDER = "uploads"
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-# Data Storage File
+# 🌟 Constants
 DATA_FILE = "blogs.json"
 
 def load_data():
+    """Loads blog data from the JSON file."""
     if os.path.exists(DATA_FILE):
         try:
-            with open(DATA_FILE, "r") as file:
+            with open(DATA_FILE, "r", encoding="utf-8") as file:
                 data = json.load(file)
-                if isinstance(data, list):
-                    return data
+                return data if isinstance(data, list) else []
         except json.JSONDecodeError:
             pass
     return []
 
 def save_data(data):
-    with open(DATA_FILE, "w") as file:
-        json.dump(data, file, indent=4)
+    """Saves blog data to the JSON file."""
+    with open(DATA_FILE, "w", encoding="utf-8") as file:
+        json.dump(data, file, indent=4, ensure_ascii=False)
+
+def encode_image(image_file):
+    """Encodes an uploaded image to a base64 string."""
+    return base64.b64encode(image_file.read()).decode("utf-8")
+
+def decode_image(image_data):
+    """Decodes a base64 string back into an image."""
+    try:
+        return Image.open(io.BytesIO(base64.b64decode(image_data)))
+    except Exception:
+        return None
 
 def add_blog(blog):
+    """Adds a new blog post if it does not already exist."""
     data = load_data()
+    
+    # 🚀 Prevent duplicate blogs
+    if any(b["blog_name"].lower() == blog["blog_name"].lower() and b["title"].lower() == blog["title"].lower() for b in data):
+        return False  # Blog already exists
+    
     data.append(blog)
     save_data(data)
+    return True  # Successfully added
 
 def delete_blog(title):
+    """Deletes a blog by title."""
     data = load_data()
-    updated_data = [blog for blog in data if blog["title"] != title]
-    
-    for blog in data:
-        if blog["title"] == title and blog["image"]:
-            try:
-                os.remove(blog["image"])
-            except FileNotFoundError:
-                pass
-
-    save_data(updated_data)
+    save_data([blog for blog in data if blog["title"] != title])
 
 def search_blogs(query, blogs):
+    """AI-powered blog search using TF-IDF."""
     if not blogs or not query.strip():
         return []
     
-    text_data = [f"{blog['blog_name'].lower()} {blog['title'].lower()}" for blog in blogs]
-    
-    if len(text_data) < 2:
-        return [blog for blog in blogs if query.lower() in blog["blog_name"].lower() or query.lower() in blog["title"].lower()]
+    text_data = [f"{b['blog_name'].lower()} {b['title'].lower()}" for b in blogs]
     
     vectorizer = TfidfVectorizer()
     tfidf_matrix = vectorizer.fit_transform(text_data)
@@ -60,78 +67,85 @@ def search_blogs(query, blogs):
     scores = (tfidf_matrix * query_vector.T).toarray()
     results = sorted(zip(scores, blogs), key=lambda x: -x[0][0])
     
-    return [blog for score, blog in results if score[0] > 0]
+    return [b for score, b in results if score[0] > 0]
 
-# Streamlit UI
-st.set_page_config(page_title="AI-Powered Blog Platform", layout="wide")
+# 🎨 Streamlit UI Configuration
+st.set_page_config(page_title="📖 Blog Platform", layout="wide")
 st.title("📖 Blog Platform")
 
-# Initialize session state for input fields
+# ✅ Sidebar: Manage Input Fields with Session State
 if "blog_name" not in st.session_state:
-    st.session_state["blog_name"] = ""
-    st.session_state["title"] = ""
-    st.session_state["description"] = ""
-    st.session_state["image_file"] = None
+    st.session_state.blog_name = ""
+if "title" not in st.session_state:
+    st.session_state.title = ""
+if "description" not in st.session_state:
+    st.session_state.description = ""
 
-# Blog Form
+# ✍️ Sidebar: Add a New Blog
 st.sidebar.header("📝 Add a New Blog")
-st.session_state.blog_name = st.sidebar.text_input("Blog Name", value=st.session_state.blog_name, key="blog_name_input")
-st.session_state.title = st.sidebar.text_input("Title", value=st.session_state.title, key="title_input")
-st.session_state.image_file = st.sidebar.file_uploader("Upload Image", type=["png", "jpg", "jpeg"], key="image_file_input")
-st.session_state.description = st.sidebar.text_area("Description", value=st.session_state.description, key="description_input")
+blog_name = st.sidebar.text_input("📌 Blog Name", value=st.session_state.blog_name, key="blog_name_input")
+title = st.sidebar.text_input("📰 Title", value=st.session_state.title, key="title_input")
+image_file = st.sidebar.file_uploader("📸 Upload Image", type=["png", "jpg", "jpeg"])
+description = st.sidebar.text_area("📝 Description", value=st.session_state.description, key="description_input")
 
-if st.sidebar.button("Publish Blog"):
-    if not st.session_state.blog_name.strip() or not st.session_state.title.strip() or not st.session_state.description.strip() or not st.session_state.image_file:
+if st.sidebar.button("🚀 Publish Blog"):
+    if not all([blog_name.strip(), title.strip(), description.strip(), image_file]):
         st.sidebar.error("⚠️ All fields must be filled before publishing!")
     else:
-        image_path = None
-        if st.session_state.image_file:
-            with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(st.session_state.image_file.name)[1]) as temp_file:
-                temp_file.write(st.session_state.image_file.getbuffer())
-                image_path = temp_file.name
+        image_data = encode_image(image_file)
+        new_blog = {"blog_name": blog_name, "title": title, "image": image_data, "description": description}
         
-        new_blog = {"blog_name": st.session_state.blog_name, "title": st.session_state.title, "image": image_path, "description": st.session_state.description}
-        add_blog(new_blog)
-        st.sidebar.success("✅ Blog Published Successfully!")
-        
-        # Clear fields
-        st.session_state.blog_name = ""
-        st.session_state.title = ""
-        st.session_state.description = ""
-        st.session_state.image_file = None
-        st.rerun()
+        if add_blog(new_blog):
+            st.sidebar.success("✅ Blog Published Successfully!")
+            
+            # 🛠️ Reset the fields (except image uploader)
+            st.session_state.blog_name = ""
+            st.session_state.title = ""
+            st.session_state.description = ""
 
-# Blog Display
+            st.rerun()  # Refresh the page to clear inputs
+        else:
+            st.sidebar.warning("⚠️ A blog with the same name and title already exists!")
+
+# 📚 Display All Blogs
 st.header("📚 All Blogs")
 blogs = load_data()
 
 if not blogs:
-    st.info("No blogs available. Add one from the sidebar!")
+    st.info("ℹ️ No blogs available. Add one from the sidebar!")
 else:
     for blog in blogs:
-        with st.expander(blog["title"]):
+        with st.expander(f"📰 {blog['title']}"):
             if blog["image"]:
-                st.image(blog["image"], use_container_width=True)
-            st.write(blog["description"])
+                img = decode_image(blog["image"])
+                if img:
+                    st.image(img, use_container_width=True)
+                else:
+                    st.warning("⚠️ Image could not be loaded.")
+            st.write(f"📝 {blog['description']}")
             st.caption(f"✍️ {blog['blog_name']}")
             if st.button(f"🗑️ Delete '{blog['title']}'", key=f"delete_{blog['title']}"):
                 delete_blog(blog['title'])
                 st.rerun()
 
-# AI Search
+# 🔍 AI-Powered Search
 st.header("🔍 AI-Powered Search")
-search_query = st.text_input("Search Blogs by Content")
+search_query = st.text_input("🔎 Search Blogs by Content")
 
 if search_query:
     results = search_blogs(search_query, blogs)
     
     if results:
-        st.subheader("Search Results")
+        st.subheader("🔎 Search Results")
         for res in results:
-            with st.expander(res["title"]):
+            with st.expander(f"📰 {res['title']}"):
                 if res["image"]:
-                    st.image(res["image"], use_container_width=True)
-                st.write(res["description"])
+                    img = decode_image(res["image"])
+                    if img:
+                        st.image(img, use_container_width=True)
+                    else:
+                        st.warning("⚠️ Image could not be loaded.")
+                st.write(f"📝 {res['description']}")
                 st.caption(f"✍️ {res['blog_name']}")
     else:
         st.warning("⚠️ No matching blogs found!")
