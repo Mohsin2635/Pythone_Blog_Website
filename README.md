@@ -1,4 +1,4 @@
-📖 Blog Platform
+#📖 Blog Platform
 
 Welcome to the Blog Platform – a modern and intuitive blogging application built with Streamlit. This platform allows users to create, publish, search, and manage blog posts seamlessly. It features an AI-powered search engine for better content discovery.
 
@@ -48,8 +48,7 @@ Ensure you have Python 3.8+ installed.
 
 📥 Clone the Repository
 
-git clone https://github.com/YOUR_USERNAME/Blog-Platform.git
-cd Blog-Platform
+git clone https://github.com/Mohsin2635/Pythone_Blog_Website.git
 
 📦 Install Dependencies
 
