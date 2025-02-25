@@ -54,10 +54,11 @@ def delete_blog(title):
     save_data([blog for blog in data if blog["title"] != title])
 
 def search_blogs(query, blogs):
-    """AI-powered blog search using TF-IDF."""
+    """AI-powered blog search using TF-IDF (title, blog_name, and description)."""
     if not blogs or not query.strip():
         return []
     
+    # Include title, blog_name, and description in search
     text_data = [f"{b['blog_name'].lower()} {b['title'].lower()}" for b in blogs]
     
     vectorizer = TfidfVectorizer()
@@ -69,8 +70,11 @@ def search_blogs(query, blogs):
     
     return [b for score, b in results if score[0] > 0]
 
+
 # 🎨 Streamlit UI Configuration
 st.set_page_config(page_title="📖 Blog Platform", layout="wide")
+st.header("Growth Mindset Challenge", divider=True)
+st.write("Growth Mindset Challenge is an interactive blogging platform designed to inspire learning, reflection, and personal growth. It allows users to share insightful blogs, upload images, and engage in an AI-powered search to discover inspiring content. Whether you're writing about self-improvement, productivity, or personal experiences, this platform helps cultivate a growth mindset by encouraging continuous learning and sharing valuable insights with the community. 🚀✨")
 st.title("📖 Blog Platform")
 
 # ✅ Sidebar: Manage Input Fields with Session State
